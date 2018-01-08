@@ -1,0 +1,31 @@
+#MBAC begin
+# reusing class limit commands to set parameters
+ 
+limit_grenadier <value> #unblockable
+limit_skirmisher <value> #autoblock
+limit_rifle <value> #aimbot
+# determines what hacks should be detected
+# 101 = disable, 102 = enable
+ 
+limit_cavalry <value> #advanced logging
+# logs plenty of data for later parameter fine-tuning
+# 101 = disable, 102 = enable
+ 
+limit_lancer <value> #player join message
+# sends the joining player a message that this server is unsing anti cheat
+# 101 = disable, 102 = enable
+ 
+limit_hussar <value> #hack consequence
+# consequence when a player got detected using hacks
+# 101 = message only
+# 102 = perma ban
+# 103 = temp ban
+# 104 = kick
+ 
+limit_dragoon <value> #hack warnings
+limit_cuirassier <value> #hack consequences
+# determines what type of message should be issued when the specific condition occours
+# 101 = server log only
+# 102 = broadcast to all players
+# 103 = broadcast admins only
+#MBAC end
