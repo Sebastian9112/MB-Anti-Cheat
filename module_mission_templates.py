@@ -1,4 +1,27 @@
 mb_anti_cheat = [
+(0, 0, ti_once, [],
+[
+    (try_begin),
+        (multiplayer_is_dedicated_server),
+        (assign, "$is_dedi", 1),
+    (else_try),
+        (assign, "$is_dedi", 0),
+    (try_end),
+]),
+
+(ti_server_player_joined, 0, 0, [],
+[
+    (store_trigger_param_1, ":player"),
+    (player_set_slot, ":player", slot_player_unblockable_count, 0),
+]),
+
+(ti_on_multiplayer_mission_end, 0, 0, [],
+[
+    (try_for_players, ":player", "$is_dedi"),
+        (player_set_slot, ":player", slot_player_unblockable_count, 0),
+    (try_end),
+]),
+
 (ti_on_agent_hit, 0, 0, [],
 [
     (store_trigger_param_1, ":victim_agent"),
@@ -38,21 +61,38 @@ mb_anti_cheat = [
     (set_fixed_point_multiplier, 100),
 
     (val_abs, ":angle"),# 180 = face to face
-    (gt, ":angle", 105),
+    (gt, ":angle", 120),
 
+    #logging
     (agent_get_player_id, ":player", ":dealer_agent"),
     (str_store_player_username, s0, ":player"),
     (player_get_unique_id, reg1, ":player"),
-    (str_store_string, s0, "@{s0} with UID {reg1} might be using unblockable attacks"),
-    (server_add_message_to_log, s0),
+    (player_get_slot, reg2, ":player", slot_player_unblockable_count),
+    (val_add, reg2, 1),
+    (player_set_slot, ":player", slot_player_unblockable_count, reg2),
+    (str_store_item_name, s1, reg0),
+    (assign, reg3, ":angle"),
+    (get_distance_between_positions, reg4, pos1, pos2),
+    (assign, reg5, ":defend_action"),
+    (assign, reg6, ":v_dir"),
 
-    (try_for_players, ":cur_player", 1),
+    (str_store_string, s0, "@AntiCheat; Player:{s0} UID:{reg1} Cheat:Unblockable({reg2}) ^(item:{s1} angle:{reg3} dist:{reg4}) defend:{reg5} dir:{reg6}))"),
+
+    (try_begin),
+        (eq, "$is_dedi", 1),
+        (server_add_message_to_log, s0),
+    (try_end),
+
+    (try_for_players, ":cur_player", "$is_dedi"),
         (player_is_admin, ":cur_player"),
         (multiplayer_send_string_to_player, ":cur_player", multiplayer_event_show_server_message, s0),
     (try_end),
     
-    # (ban_player, ":player", 0, 0),
-    # (save_ban_info_of_player, ":player"),
+    # (try_begin),
+    #     (eq, reg2, 10),
+    #     (ban_player, ":player", 0, 0),
+    #     (save_ban_info_of_player, ":player"),
+    # (try_end),
     
     (set_trigger_result, 0),
 ]),
