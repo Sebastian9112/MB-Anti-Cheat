@@ -12,5 +12,17 @@ strings += [
   ("hack_consequence_0","permanently banned"),
   ("hack_consequence_1","temporarily banned"),
   ("hack_consequence_2","kicked"),
+
+  ("hack_option_0","disabled"),
+  ("hack_option_1","enabled"),
+
+  ("hack_consequence_option-1","message only"),
+  ("hack_consequence_option_0","perma ban"),
+  ("hack_consequence_option_1","temp ban"),
+  ("hack_consequence_option_2","kick"),
+
+  ("hack_broadcast_option-1","server log only"),
+  ("hack_broadcast_option_0","player broadcast"),
+  ("hack_broadcast_option_1","admin broadcast"),
 ]
 #MBAC end
