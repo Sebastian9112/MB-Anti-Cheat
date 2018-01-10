@@ -13,63 +13,65 @@
 #MBAC begin
 from module_items import items
 
-scripts += [
-  ("mbac_init",
-  [
-    (assign, "$first_player_joined", 0),
+attack_dir_caps = [
+#down
+  itcf_thrust_onehanded|
+  itcf_thrust_twohanded|
+  itcf_thrust_polearm|
+  itcf_horseback_thrust_onehanded|
+  itcf_thrust_onehanded_lance|
+  itcf_thrust_onehanded_lance_horseback|
+  itcf_thrust_musket,
+#up
+  itcf_overswing_onehanded|
+  itcf_overswing_twohanded|
+  itcf_overswing_polearm|
+  itcf_horseback_overswing_right_onehanded|
+  itcf_horseback_overswing_left_onehanded|
+  itcf_overswing_spear|
+  itcf_overswing_musket,
+#right
+  itcf_slashright_onehanded|
+  itcf_slashright_twohanded|
+  itcf_slashright_polearm|
+  itcf_horseback_slashright_onehanded|
+  itcf_horseback_slash_polearm,
+#left
+  itcf_slashleft_onehanded|
+  itcf_slashleft_twohanded|
+  itcf_slashleft_polearm|
+  itcf_horseback_slashleft_onehanded|
+  itcf_horseback_slash_polearm
+]
 
-    (try_for_range, ":hack", 0, num_hacks),
-      (troop_set_slot, ":hack", slot_troop_enable_anti_cheat, 1),#enable each hack detection
-    (try_end),
+def mbac_pre_init():
+  objects = []
+  for i in xrange(num_hacks):
+    objects.append((troop_set_slot, i, slot_troop_enable_anti_cheat, hack_detection[i]))
+    objects.append((troop_set_slot, i, slot_troop_hack_percentage, hack_percentage[i]))
+    objects.append((troop_set_slot, i, slot_troop_hack_consequence, hack_consequence[i]))
+    objects.append((troop_set_slot, i, slot_troop_hack_warn_threshold, hack_warn_threshold[i]))
+  for i in xrange(len(attack_dir_caps)):
+    objects.append((troop_set_slot, i, slot_troop_item_attack_dir_caps, attack_dir_caps[i]))
+  return objects[:]
+
+scripts += [
+  ("mbac_pre_init", mbac_pre_init()),
+
+  ("mbac_init", [
+    (call_script, "script_mbac_pre_init"),
+
+    (assign, "$first_player_joined", 0),
 
     (assign, "$advanced_logging", 1),#logs plenty of data for later parameter fine-tuning
     (assign, "$player_join_message", 1),#sends the joining player a message that this server is unsing anti cheat
-    (assign, "$hack_consequence", -1),# -1 = message only, 0 = perma ban, 1 = temp ban, 2 = kick
-    (assign, "$broadcast_hack_warnings", 1),# -1 = log only, 0 = all players, 1 = admins
-    (assign, "$broadcast_hack_consequences", 0),# -1 = log only, 0 = all players, 1 = admins
+    (assign, "$broadcast_hack_warnings", msg_admins),
+    (assign, "$broadcast_hack_consequences", msg_players),
 
     (assign, "$hack_check_period", 30000),#miliseconds
     (assign, "$warnings_til_consequences", 3),#warnings til consequence
-    (assign, "$min_incidents_til_warning", 2),#if incidents happen more often, then a warning can be triggered
-
-    (troop_set_slot, hack_unblockable, slot_troop_hack_percentage, 13),#percentage of ignored blocks to trigger a warning
-    (troop_set_slot, hack_autoblock, slot_troop_hack_percentage, 75),#percentage of down blocks to trigger a warning
-    (troop_set_slot, hack_aimbot, slot_troop_hack_percentage, 75),#percentage of head shots to trigger a warning
 
     #check for attack directions
-    (troop_set_slot, 0, slot_troop_item_attack_dir_caps,#down
-      itcf_thrust_onehanded|
-      itcf_thrust_twohanded|
-      itcf_thrust_polearm|
-      itcf_horseback_thrust_onehanded|
-      itcf_thrust_onehanded_lance|
-      itcf_thrust_onehanded_lance_horseback|
-      itcf_thrust_musket
-    ),
-    (troop_set_slot, 1, slot_troop_item_attack_dir_caps,#up
-      itcf_overswing_onehanded|
-      itcf_overswing_twohanded|
-      itcf_overswing_polearm|
-      itcf_horseback_overswing_right_onehanded|
-      itcf_horseback_overswing_left_onehanded|
-      itcf_overswing_spear|
-      itcf_overswing_musket
-    ),
-    (troop_set_slot, 2, slot_troop_item_attack_dir_caps,#right
-      itcf_slashright_onehanded|
-      itcf_slashright_twohanded|
-      itcf_slashright_polearm|
-      itcf_horseback_slashright_onehanded|
-      itcf_horseback_slash_polearm
-    ),
-    (troop_set_slot, 3, slot_troop_item_attack_dir_caps,#left
-      itcf_slashleft_onehanded|
-      itcf_slashleft_twohanded|
-      itcf_slashleft_polearm|
-      itcf_horseback_slashleft_onehanded|
-      itcf_horseback_slash_polearm
-    ),
-
     (try_for_range, ":item", 0, len(items)),
       (item_get_type, ":item_type", ":item"),
       (is_between, ":item_type", itp_type_one_handed_wpn, itp_type_arrows),
@@ -83,69 +85,80 @@ scripts += [
     (try_end),
   ]),
 
-  ("cf_mbac_console_command", 
-  [
+  ("cf_mbac_console_command", [
     (store_script_param, ":command", 1),
     (store_script_param, ":value", 2),
 
     #reuse class limiter commands and values
     (val_sub, ":command", 66),
+    (val_sub, ":value", 102),#allows for -1
 
-    (assign, ":skip", 1),
+    (str_clear, s0),
     (try_begin),
-      (is_between, ":command", cmd_hack_options, cmd_hack_consequence),
-      (val_sub, ":value", 101),
+      (eq, ":command", cmd_advanced_logging),
       (is_between, ":value", 0, 2),
+      (assign, "$advanced_logging", ":value"),
+
       (store_add, ":string", "str_hack_option_0", ":value"),
       (str_store_string, s1, ":string"),
-      (try_begin),#hack detection
-        (is_between, ":command", cmd_hack_options, num_hacks),
-        (troop_set_slot, ":command", slot_troop_enable_anti_cheat, ":value"),
-        (store_add, ":string", "str_hack_0", ":command"),
-        (str_store_string, s2, ":string"),
-        (str_store_string, s0, "@{s2} detection {s1}"),
-      (else_try),
-        (eq, ":command", cmd_advanced_logging),
-        (assign, "$advanced_logging", ":value"),
-        (str_store_string, s0, "@Advanced logging {s1}"),
-      (else_try),
-        (assign, "$player_join_message", ":value"),
-        (str_store_string, s0, "@Player join message {s1}"),
-      (try_end),
-      (assign, ":skip", 0),
+      (str_store_string, s0, "@Advanced logging {s1}"),
+
     (else_try),
-      (is_between, ":command", cmd_hack_consequence, cmd_broadcast_hack_consequences + 1),
-      (val_sub, ":value", 102),#allows for -1
-      (try_begin),
-        (eq, ":command", cmd_hack_consequence),
-        (is_between, ":value", -1, 3),
-        (assign, "$hack_consequence", ":value"),
-        (store_add, ":string", "str_hack_consequence_option_0", ":value"),
-        (str_store_string, s1, ":string"),
-        (str_store_string, s0, "@Hack consequence set to {s1}"),
-        (assign, ":skip", 0),
-      (else_try),
-        (ge, ":command", cmd_broadcast_hack_warnings),
-        (is_between, ":value", -1, 2),
-        (store_add, ":string", "str_hack_broadcast_option_0", ":value"),
-        (str_store_string, s1, ":string"),
-        (try_begin),
-          (eq, ":command", cmd_broadcast_hack_warnings),
-          (assign, "$broadcast_hack_warnings", ":value"),
-          (str_store_string, s0, "@Hack-warning message set to {s1}"),
-        (else_try),
-          (assign, "$broadcast_hack_consequences", ":value"),
-          (str_store_string, s0, "@Hack-consequence message set to {s1}"),
-        (try_end),
-        (assign, ":skip", 0),
-      (try_end),
+      (eq, ":command", cmd_player_join_message),
+      (is_between, ":value", 0, 2),
+      (assign, "$player_join_message", ":value"),
+
+      (store_add, ":string", "str_hack_option_0", ":value"),
+      (str_store_string, s1, ":string"),
+      (str_store_string, s0, "@Player join message {s1}"),
+
+    (else_try),
+      (eq, ":command", cmd_broadcast_hack_warnings),
+      (is_between, ":value", -1, 2),
+      (assign, "$broadcast_hack_warnings", ":value"),
+
+      (store_add, ":string", "str_hack_broadcast_option_0", ":value"),
+      (str_store_string, s1, ":string"),
+      (str_store_string, s0, "@Hack-warning message set to {s1}"),
+
+    (else_try),
+      (eq, ":command", cmd_broadcast_hack_consequences),
+      (is_between, ":value", -1, 2),
+      (assign, "$broadcast_hack_consequences", ":value"),
+
+      (store_add, ":string", "str_hack_broadcast_option_0", ":value"),
+      (str_store_string, s1, ":string"),
+      (str_store_string, s0, "@Hack-consequences message set to {s1}"),
+
+    (else_try),
+      (is_between, ":command", cmd_hacks_option, cmd_hacks_consequence),
+      (is_between, ":value", 0, 2),
+      (val_sub, ":command", cmd_hacks_option),
+      (troop_set_slot, ":command", slot_troop_enable_anti_cheat, ":value"),
+
+      (store_add, ":string", "str_hack_option_0", ":value"),
+      (str_store_string, s1, ":string"),
+      (store_add, ":string", "str_hack_0", ":command"),
+      (str_store_string, s2, ":string"),
+      (str_store_string, s0, "@{s2} detection {s1}"),
+
+    (else_try),
+      (is_between, ":command", cmd_hacks_consequence, cmd_end),
+      (is_between, ":value", -1, 3),
+      (val_sub, ":command", cmd_hacks_consequence),
+      (troop_set_slot, ":command", slot_troop_hack_consequence, ":value"),
+
+      (store_add, ":string", "str_hack_consequence_option_0", ":value"),
+      (str_store_string, s1, ":string"),
+      (store_add, ":string", "str_hack_0", ":command"),
+      (str_store_string, s2, ":string"),
+      (str_store_string, s0, "@{s2} hack consequence set to {s1}"),
     (try_end),
 
-    (eq, ":skip", 0),
+    (neg|str_is_empty, s0),
   ]),
 
-  ("mbac_init_player", 
-  [
+  ("mbac_init_player", [
     (store_script_param, ":player", 1),
 
     (try_for_range, ":slot", slot_player_unblockable_warnings, slot_player_unblockable_warnings + num_hacks),
@@ -153,8 +166,7 @@ scripts += [
     (try_end),
   ]),
 
-  ("mbac_set_up_message",
-  [
+  ("mbac_set_up_message", [
     (store_script_param, ":msg_type", 1),
 
     (try_begin),
@@ -171,10 +183,10 @@ scripts += [
     (try_end),
 
     #logging
-    (assign, reg0, mbac_v_maj),
-    (assign, reg1, mbac_v_min),
-    (assign, reg2, mbac_v_rev),
-    (str_store_string, s0, "@[MBAC v{reg0}.{reg1}.{reg2}]: {s0}"),
+    (assign, reg61, mbac_v_maj),
+    (assign, reg62, mbac_v_min),
+    (assign, reg63, mbac_v_rev),
+    (str_store_string, s0, "@[MBAC v{reg61}.{reg62}.{reg63}]: {s0}"),
     (try_begin),
       (eq, "$is_dedi", 1),
       (server_add_message_to_log, s0),
@@ -183,10 +195,10 @@ scripts += [
     (try_end),
   ]),
 
-  ("mbac_hack_consequence", 
-  [
+  ("mbac_hack_consequence", [
     (store_script_param, ":player", 1),
 
+    (assign, ":hack_consequence", con_message),
     (assign, ":hack_count", 0),
     (try_for_range, ":i", 0, num_hacks),
       (store_add, ":slot", slot_player_unblockable_warnings, ":i"),
@@ -200,9 +212,19 @@ scripts += [
         (str_store_string, s1, ":string"),
         (str_store_string, s0, "@{s0}, {s1}"),
       (try_end),
+
+      (troop_get_slot, ":cur_consequence", ":i", slot_troop_hack_consequence),
+      (gt, ":cur_consequence", con_message),
+      (try_begin),
+        (eq, ":hack_consequence", con_message),
+        (assign, ":hack_consequence", ":cur_consequence"),
+      (else_try),#check for consequence hierarchy
+        (lt, ":cur_consequence", ":hack_consequence"),
+        (assign, ":hack_consequence", ":cur_consequence"),
+      (try_end),
     (try_end),
 
-    (store_add, ":string", "str_hack_consequence_0", "$hack_consequence"),
+    (store_add, ":string", "str_hack_consequence_0", ":hack_consequence"),
     (str_store_string, s1, ":string"),
     (str_store_string, s0, "@got {s1} for using cheats({s0})"),
 
@@ -214,19 +236,18 @@ scripts += [
 
     (try_begin),#notification only
       (this_or_next|player_is_admin, ":player"),
-      (eq, "$hack_consequence", -1),
+      (eq, ":hack_consequence", con_message),
       (call_script, "script_mbac_init_player", ":player"),
     (else_try),#ban
-      (is_between, "$hack_consequence", 0, 2),
-      (ban_player, ":player", "$hack_consequence", 0),
+      (is_between, ":hack_consequence", con_perma_ban, con_temp_ban + 1),
+      (ban_player, ":player", ":hack_consequence", 0),
       (save_ban_info_of_player, ":player"),
     (else_try),#kick
       (kick_player, ":player"),
     (try_end),
   ]),
 
-  ("cf_mbac_ti_player_joined",
-  [
+  ("cf_mbac_ti_player_joined", [
     (store_trigger_param, ":player", 1),
     
     (call_script, "script_mbac_init_player", ":player"),
@@ -246,21 +267,19 @@ scripts += [
     (assign, "$first_player_joined", 1),
   ]),
 
-  ("cf_mbac_ti_mission_end",
-  [
+  ("cf_mbac_ti_mission_end", [
     (multiplayer_is_server),
     (try_for_players, ":player", "$is_dedi"),
       (call_script, "script_mbac_init_player", ":player"),
     (try_end),
   ]),
 
-  ("cf_mbac_ti_agent_spawn",
-  [
+  ("cf_mbac_ti_agent_spawn", [
     (store_trigger_param, ":agent", 1),
 
     (agent_is_human, ":agent"),
     (store_mission_timer_a_msec, ":time"),
-    (store_random_in_range, ":check_time", 0, 50),#randomize check time within the server tick rate (20/second)
+    (store_random_in_range, ":check_time", 0, 100),#randomize check time within 0.1 sec
     (val_add, ":check_time", ":time"),
     (agent_set_slot, ":agent", slot_agent_tick_check_time, ":check_time"),
     (agent_set_slot, ":agent", slot_agent_defend_dir, -1),
@@ -271,8 +290,7 @@ scripts += [
     (agent_set_slot, ":agent", slot_agent_period_reset_time, ":check_time"),
   ]),
 
-  ("cf_mbac_ti_agent_hit",
-  [
+  ("cf_mbac_ti_agent_hit", [
     (store_trigger_param, ":v_agent", 1),
     (store_trigger_param, ":d_agent", 2),
     (store_trigger_param, ":v_bone", 4),
@@ -304,7 +322,7 @@ scripts += [
         (eq, ":v_dir", ":d_dir"),
 
         (agent_get_slot, ":defend_ticks", ":v_agent", slot_agent_defend_ticks),
-        (gt, ":defend_ticks", 2),
+        (gt, ":defend_ticks", 1),
 
         (agent_get_animation, ":v_anim", ":v_agent", 0),
         (neq, ":v_anim", "anim_kick_right_leg"),
@@ -366,8 +384,7 @@ scripts += [
     (try_end),
   ]),
 
-  ("cf_mbac_ti_once",
-  [
+  ("cf_mbac_ti_once", [
     (multiplayer_is_server),
     (try_begin),
       (multiplayer_is_dedicated_server),
@@ -377,8 +394,7 @@ scripts += [
     (try_end),
   ]),
 
-  ("cf_mbac_ti_each_frame",
-  [
+  ("cf_mbac_ti_each_frame", [
     (multiplayer_is_server),
     (store_mission_timer_a_msec, ":time"),
     (server_get_control_block_dir, ":cbd"),
@@ -389,7 +405,7 @@ scripts += [
       (agent_get_slot, ":check_time", ":agent", slot_agent_tick_check_time),
       (try_begin),
         (ge, ":time", ":check_time"),#check agents in batches, splits the workload across as many frames as possible
-        (val_add, ":check_time", 50),
+        (val_add, ":check_time", 100),
         (agent_set_slot, ":agent", slot_agent_tick_check_time, ":check_time"),
         (agent_get_defend_action, ":defend", ":agent"), #returned values: free = 0, parrying = 1, blocking = 2
         (try_begin),
@@ -447,7 +463,7 @@ scripts += [
         (agent_set_slot, ":agent", ":slot", 0),#reset
 
         (this_or_next|eq, "$advanced_logging", 1),
-        (ge, ":incidents", "$min_incidents_til_warning"),
+        (neg|troop_slot_ge, ":i", slot_troop_hack_warn_threshold, ":incidents"),
 
         (try_begin),
           (gt, ":total", 0),
@@ -468,7 +484,7 @@ scripts += [
           (str_store_string, s0, "@{s0}, {s1}"),
         (try_end),
 
-        (ge, ":incidents", "$min_incidents_til_warning"),
+        (neg|troop_slot_ge, ":i", slot_troop_hack_warn_threshold, ":incidents"),
         (neg|troop_slot_ge, ":i", slot_troop_hack_percentage, ":cur_percentage"),
 
         (store_add, ":slot", slot_player_unblockable_warnings, ":i"),
@@ -512,7 +528,8 @@ scripts += [
           (store_add, ":slot", slot_player_unblockable_warnings, ":i"),
           (player_get_slot, reg0, ":player", ":slot"),
           (gt, reg0, 0),
-          (str_store_string, s0, "@{s0} {s1}({reg0})"),
+          (assign, reg1, "$warnings_til_consequences"),
+          (str_store_string, s0, "@{s0} {s1}({reg0}/{reg1})"),
         (try_end),
         (call_script, "script_mbac_set_up_message", "$broadcast_hack_warnings"),
       (else_try),#consequence
